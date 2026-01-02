@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, BookOpen, Menu, Plus, Brain, Zap, Loader2, 
-  Home, ChevronRight, Scale, Wallet, Heart
+  Home, ChevronRight, Scale, Wallet, Heart, ShieldCheck, 
+  Globe, Info, MessageSquare
 } from 'lucide-react';
 import { Message, Language, VoiceType } from './types';
 import { geminiService } from './services/geminiService';
@@ -25,18 +26,22 @@ const App: React.FC = () => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const startNewChat = (initialText: string = "") => {
-    const welcome: Message = { 
-      id: 'welcome', 
-      role: 'assistant', 
-      content: t.introMessage, 
-      timestamp: new Date() 
-    };
-    setMessages([welcome]);
-    setView('chat');
-    setIsSidebarOpen(false);
-    if (initialText.trim()) {
-      handleSend(initialText, [welcome]);
+  const handleInquirySubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim()) return;
+    
+    if (view === 'home') {
+      const welcome: Message = { 
+        id: 'welcome', 
+        role: 'assistant', 
+        content: t.introMessage, 
+        timestamp: new Date() 
+      };
+      setMessages([welcome]);
+      setView('chat');
+      handleSend(input, [welcome]);
+    } else {
+      handleSend();
     }
   };
 
@@ -88,7 +93,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Generation error:", e);
       setMessages(prev => prev.map(m => 
-        m.id === assistantMsgId ? { ...m, content: "Consultation failed. The server might be busy. Please try again in a moment." } : m
+        m.id === assistantMsgId ? { ...m, content: "Consultation failed. The system is experiencing high volume. Please try again in a few moments." } : m
       ));
     } finally {
       setIsLoading(false);
@@ -98,53 +103,48 @@ const App: React.FC = () => {
   return (
     <div className={`flex h-screen overflow-hidden ${language === 'ur' ? 'rtl font-arabic' : 'ltr'}`}>
       {/* Sidebar */}
-      <aside className={`fixed lg:relative inset-y-0 z-50 w-72 bg-emerald-950 text-white transform ${isSidebarOpen ? 'translate-x-0' : (language === 'ur' ? 'translate-x-full' : '-translate-x-full')} lg:translate-x-0 transition-transform duration-300 border-r border-emerald-900`}>
-        <div className="flex flex-col h-full p-6">
-          <div className="flex items-center gap-3 mb-10">
-            <BookOpen className="text-emerald-400" />
-            <h1 className="text-lg font-black tracking-tight">{t.appTitle}</h1>
+      <aside className={`fixed lg:relative inset-y-0 z-50 w-80 bg-[#042f24] text-white transform ${isSidebarOpen ? 'translate-x-0' : (language === 'ur' ? 'translate-x-full' : '-translate-x-full')} lg:translate-x-0 transition-transform duration-300 border-r border-emerald-900/50 shadow-2xl`}>
+        <div className="flex flex-col h-full p-8">
+          <div className="flex items-center gap-4 mb-12">
+            <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+              <BookOpen className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black tracking-tight leading-none">{t.appTitle}</h1>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-400 font-bold">Research Portal</span>
+            </div>
           </div>
           
-          <nav className="flex-1 space-y-2">
+          <nav className="flex-1 space-y-3">
             <button 
               onClick={() => { setView('home'); setIsSidebarOpen(false); }} 
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${view === 'home' ? 'bg-emerald-800' : 'hover:bg-emerald-900/50'}`}
+              className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all ${view === 'home' ? 'bg-emerald-800 shadow-lg' : 'hover:bg-emerald-900/40 text-emerald-100/70'}`}
             >
               <Home size={18} /> 
               <span className="text-sm font-bold">{t.home}</span>
             </button>
             <button 
-              onClick={() => startNewChat()} 
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-400 text-emerald-950 font-black mt-4 hover:bg-emerald-300 transition-transform active:scale-95 shadow-lg"
+              onClick={() => { setView('chat'); setMessages([]); handleInquirySubmit(); }} 
+              className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-emerald-500 text-[#042f24] font-black mt-6 hover:bg-emerald-400 transition-transform active:scale-95 shadow-xl"
             >
               <Plus size={18} /> 
               <span>{t.newSession}</span>
             </button>
           </nav>
 
-          <div className="pt-6 border-t border-emerald-900 space-y-4">
-            <div className="flex flex-col gap-2">
-               <span className="text-[10px] font-bold uppercase opacity-50 tracking-widest">{t.voiceSynthesis}</span>
+          <div className="pt-8 border-t border-emerald-900 space-y-6">
+            <div className="bg-emerald-900/30 p-4 rounded-2xl space-y-3">
+               <span className="text-[9px] font-black uppercase opacity-40 tracking-widest block">{t.voiceSynthesis}</span>
                <div className="grid grid-cols-2 gap-2">
-                  <button 
-                    onClick={() => setSelectedVoice('Ayesha')}
-                    className={`text-[10px] p-2 rounded-lg border transition-all ${selectedVoice === 'Ayesha' ? 'bg-emerald-400 text-emerald-950 border-emerald-300 font-bold' : 'border-emerald-800 hover:bg-emerald-900'}`}
-                  >
-                    Ayesha
-                  </button>
-                  <button 
-                    onClick={() => setSelectedVoice('Ahmed')}
-                    className={`text-[10px] p-2 rounded-lg border transition-all ${selectedVoice === 'Ahmed' ? 'bg-emerald-400 text-emerald-950 border-emerald-300 font-bold' : 'border-emerald-800 hover:bg-emerald-900'}`}
-                  >
-                    Ahmed
-                  </button>
+                  <button onClick={() => setSelectedVoice('Ayesha')} className={`text-[10px] p-2 rounded-xl border transition-all ${selectedVoice === 'Ayesha' ? 'bg-emerald-500 text-white border-transparent' : 'border-emerald-800 text-emerald-100/40 hover:text-white'}`}>Ayesha</button>
+                  <button onClick={() => setSelectedVoice('Ahmed')} className={`text-[10px] p-2 rounded-xl border transition-all ${selectedVoice === 'Ahmed' ? 'bg-emerald-500 text-white border-transparent' : 'border-emerald-800 text-emerald-100/40 hover:text-white'}`}>Ahmed</button>
                </div>
             </div>
             <button 
               onClick={() => setLanguage(language === 'en' ? 'ur' : 'en')} 
-              className="w-full p-3 rounded-xl bg-emerald-900 text-xs font-black uppercase tracking-wider hover:bg-emerald-800 transition-colors"
+              className="w-full p-4 rounded-2xl bg-[#064e3b] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-emerald-800 transition-all border border-emerald-900"
             >
-              {language === 'en' ? 'اردو ورژن' : 'English Portal'}
+              {language === 'en' ? 'اردو پورٹل' : 'English Portal'}
             </button>
           </div>
         </div>
@@ -152,120 +152,155 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col bg-[#fdfbf7] relative">
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-6 z-30">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><Menu /></button>
+        <header className="h-24 bg-white/80 backdrop-blur-xl border-b border-emerald-100/50 flex items-center justify-between px-8 z-30">
+          <div className="flex items-center gap-6">
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-3 text-emerald-900 hover:bg-emerald-50 rounded-2xl transition-colors"><Menu /></button>
             <div className="hidden md:flex flex-col">
-              <span className="text-xs font-black uppercase tracking-widest text-emerald-900/40 leading-none">Status</span>
-              <span className="text-sm font-bold text-emerald-950">System Operational</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-900/30">System Status</span>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-sm font-black text-emerald-950">Active Retrieval Engaged</span>
+              </div>
             </div>
           </div>
           
-          <button 
-            onClick={() => setIsThinkingMode(!isThinkingMode)} 
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm ${isThinkingMode ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-transparent'}`}
-          >
-            {isThinkingMode ? <Brain size={14} className="text-amber-600" /> : <Zap size={14} />}
-            {isThinkingMode ? t.thinkingOn : t.standard}
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsThinkingMode(!isThinkingMode)} 
+              className={`flex items-center gap-3 px-6 py-3 rounded-2xl text-[10px] font-black uppercase transition-all shadow-md ${isThinkingMode ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-white text-slate-400 border border-slate-100'}`}
+            >
+              {isThinkingMode ? <Brain size={14} className="text-amber-600" /> : <Zap size={14} />}
+              {isThinkingMode ? t.thinkingOn : t.standard}
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           {view === 'home' ? (
-            <div className="max-w-5xl mx-auto p-8 md:p-16 space-y-20">
-              <section className="text-center space-y-8 animate-in">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100 mb-4">
-                  <Scale size={12} />
-                  Official Scholarly Retrieval Engine
+            <div className="max-w-4xl mx-auto p-8 md:pt-32 space-y-24">
+              <section className="text-center space-y-10 animate-in">
+                <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-emerald-50 text-emerald-800 rounded-full text-[11px] font-black uppercase tracking-[0.15em] border border-emerald-100">
+                  <ShieldCheck size={14} className="text-emerald-600" />
+                  Authorized Scholarly Engine
                 </div>
-                <h2 className="text-4xl md:text-7xl font-black text-emerald-950 leading-tight">{t.heroTitle}</h2>
-                <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">{t.heroSub}</p>
+                <h2 className="text-5xl md:text-8xl font-black text-emerald-950 leading-[0.9] tracking-tighter">
+                  {t.heroTitle}
+                </h2>
+                <p className="text-xl text-slate-500 max-w-2xl mx-auto font-medium leading-relaxed">
+                  {t.heroSub}
+                </p>
                 
-                <div className="max-w-2xl mx-auto flex flex-col md:flex-row bg-white p-3 rounded-[32px] shadow-2xl border border-slate-100 overflow-hidden ring-4 ring-emerald-50/50">
-                  <input 
-                    className="flex-1 px-6 py-4 border-none focus:ring-0 text-lg outline-none placeholder:text-slate-300" 
-                    placeholder={t.placeholder} 
-                    value={input} 
-                    onChange={e => setInput(e.target.value)} 
-                    onKeyDown={e => e.key === 'Enter' && startNewChat(input)} 
-                  />
-                  <button 
-                    onClick={() => startNewChat(input)} 
-                    className="bg-emerald-950 text-white px-10 py-4 rounded-[24px] font-black uppercase text-xs hover:bg-emerald-900 transition-all active:scale-95 shadow-lg"
-                  >
-                    {t.consult}
-                  </button>
-                </div>
+                {/* The Inquiry Form */}
+                <form 
+                  onSubmit={handleInquirySubmit}
+                  className="max-w-2xl mx-auto group relative"
+                >
+                  <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-amber-500 rounded-[40px] blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                  <div className="relative flex flex-col md:flex-row bg-white p-4 rounded-[36px] shadow-2xl border border-emerald-100 overflow-hidden ring-8 ring-emerald-50/30">
+                    <input 
+                      className="flex-1 px-8 py-5 border-none focus:ring-0 text-xl outline-none placeholder:text-slate-300 font-medium" 
+                      placeholder={t.placeholder} 
+                      value={input} 
+                      onChange={e => setInput(e.target.value)} 
+                    />
+                    <button 
+                      type="submit"
+                      className="bg-[#042f24] text-white px-12 py-5 rounded-[28px] font-black uppercase text-xs hover:bg-emerald-900 transition-all active:scale-95 shadow-xl flex items-center justify-center gap-3"
+                    >
+                      <Send size={16} />
+                      {t.consult}
+                    </button>
+                  </div>
+                </form>
               </section>
 
-              <section className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in" style={{ animationDelay: '0.1s' }}>
-                <TopicCard icon={Scale} title={t.topicSalah} prompt="What are the essential conditions for Salah?" onClick={startNewChat} />
-                <TopicCard icon={Wallet} title={t.topicZakat} prompt="How is Zakat calculated on modern assets like stocks?" onClick={startNewChat} />
-                <TopicCard icon={Heart} title={t.topicNikah} prompt="What are the fundamental requirements for a valid Nikah?" onClick={startNewChat} />
+              <section className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in" style={{ animationDelay: '0.1s' }}>
+                <TopicCard icon={Scale} title={t.topicSalah} prompt="Define the Fardh acts of Wudu as per Hanafi Fiqh." onClick={(p: string) => { setInput(p); handleInquirySubmit(); }} />
+                <TopicCard icon={Wallet} title={t.topicZakat} prompt="Calculate Zakat on 10 Tola Gold with current valuation." onClick={(p: string) => { setInput(p); handleInquirySubmit(); }} />
+                <TopicCard icon={Heart} title={t.topicNikah} prompt="What are the essential pillars of a valid Nikah contract?" onClick={(p: string) => { setInput(p); handleInquirySubmit(); }} />
               </section>
 
-              <footer className="text-center py-10 border-t border-slate-100 opacity-40">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em]">{t.disclaimer}</p>
+              <div className="flex flex-wrap justify-center gap-8 opacity-30 grayscale hover:grayscale-0 transition-all duration-500">
+                <InstitutionLogo name="Jamia Binoria" />
+                <InstitutionLogo name="Darul Uloom" />
+                <InstitutionLogo name="Deoband" />
+                <InstitutionLogo name="Suffah PK" />
+              </div>
+
+              <footer className="text-center py-12 border-t border-emerald-100/50">
+                <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em]">{t.disclaimer}</p>
               </footer>
             </div>
           ) : (
-            <div className="flex flex-col h-full">
-              <div className="flex-1 p-4 md:p-12 space-y-8 max-w-5xl mx-auto w-full">
+            <div className="flex flex-col h-full parchment-bg">
+              <div className="flex-1 p-6 md:p-12 space-y-12 max-w-5xl mx-auto w-full">
                 {messages.map(m => (
                   <ChatMessage 
                     key={m.id} 
                     message={m} 
                     selectedVoice={selectedVoice} 
-                    onReply={(rep) => setInput(`Replying to: "${rep.content.substring(0, 30)}..." - `)} 
+                    onReply={(rep) => setInput(`In reference to: "${rep.content.substring(0, 40)}..." - `)} 
                   />
                 ))}
                 {isLoading && (
-                  <div className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-amber-50 shadow-sm w-fit animate-pulse ml-4 md:ml-12">
-                    <Loader2 className="animate-spin text-emerald-600" size={16} />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.consulting}</span>
+                  <div className="flex items-center gap-4 p-6 bg-white rounded-3xl border border-amber-100 shadow-xl w-fit animate-pulse ml-4 md:ml-16">
+                    <Loader2 className="animate-spin text-emerald-600" size={20} />
+                    <span className="text-[11px] font-black text-emerald-900 uppercase tracking-[0.2em]">{t.consulting}</span>
                   </div>
                 )}
-                <div ref={scrollRef} className="h-20" />
+                <div ref={scrollRef} className="h-32" />
               </div>
               
-              <div className="sticky bottom-0 p-6 bg-white/80 backdrop-blur-xl border-t border-slate-100">
-                <div className="max-w-4xl mx-auto flex gap-4 bg-white p-2 rounded-2xl border border-slate-200 shadow-lg">
+              <div className="sticky bottom-0 p-8 bg-white/60 backdrop-blur-2xl border-t border-emerald-100/50">
+                <form 
+                  onSubmit={handleInquirySubmit}
+                  className="max-w-4xl mx-auto flex gap-4 bg-white p-3 rounded-3xl border border-emerald-100 shadow-2xl ring-4 ring-emerald-50/50"
+                >
                   <input 
-                    className="flex-1 bg-transparent px-4 py-2 border-none focus:ring-0 text-sm outline-none" 
+                    className="flex-1 bg-transparent px-6 py-3 border-none focus:ring-0 text-base outline-none font-medium" 
                     placeholder={t.placeholder} 
                     value={input} 
                     onChange={e => setInput(e.target.value)} 
-                    onKeyDown={e => e.key === 'Enter' && !isLoading && handleSend()} 
                   />
                   <button 
+                    type="submit"
                     disabled={isLoading || !input.trim()}
-                    onClick={() => handleSend()} 
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-lg active:scale-95 ${isLoading || !input.trim() ? 'bg-slate-100 text-slate-300' : 'bg-emerald-950 text-white hover:bg-emerald-900'}`}
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-lg active:scale-95 ${isLoading || !input.trim() ? 'bg-slate-100 text-slate-300' : 'bg-[#042f24] text-white hover:bg-emerald-900'}`}
                   >
-                    <Send size={20} />
+                    <Send size={22} />
                   </button>
-                </div>
+                </form>
               </div>
             </div>
           )}
         </div>
       </main>
       
-      {isSidebarOpen && <div className="fixed inset-0 bg-emerald-950/20 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
+      {isSidebarOpen && <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
     </div>
   );
 };
 
 const TopicCard = ({ icon: Icon, title, prompt, onClick }: any) => (
-  <button onClick={() => onClick(prompt)} className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all text-left flex flex-col gap-6 group">
-    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-950 group-hover:text-white transition-colors duration-500">
-      <Icon size={24} />
+  <button onClick={() => onClick(prompt)} className="bg-white p-10 rounded-[40px] border border-emerald-50 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all text-left flex flex-col gap-8 group relative overflow-hidden">
+    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 group-hover:bg-emerald-500 transition-colors duration-500 opacity-20 group-hover:opacity-10"></div>
+    <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-[#042f24] group-hover:text-white transition-all duration-500 shadow-inner">
+      <Icon size={28} />
     </div>
-    <div className="flex justify-between items-center w-full">
-      <span className="font-bold text-slate-800 text-lg">{title}</span>
-      <ChevronRight size={18} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
+    <div className="space-y-2">
+      <span className="block font-black text-emerald-950 text-xl tracking-tight">{title}</span>
+      <span className="text-xs text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
+        Explore Topic <ChevronRight size={14} className="text-emerald-500" />
+      </span>
     </div>
   </button>
+);
+
+const InstitutionLogo = ({ name }: { name: string }) => (
+  <div className="flex items-center gap-3 px-6 py-4 rounded-2xl border border-emerald-200/50 bg-white shadow-sm">
+    <Globe size={16} className="text-emerald-800" />
+    <span className="text-xs font-black text-emerald-950 uppercase tracking-widest whitespace-nowrap">{name}</span>
+  </div>
 );
 
 export default App;

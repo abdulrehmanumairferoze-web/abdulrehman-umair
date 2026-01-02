@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, GenerateContentResponse, Modality } from "@google/genai";
 import { Message, Source } from "../types";
 
@@ -11,18 +10,18 @@ export const SYSTEM_INSTRUCTION = `You are the "Darul Ifta Multi-Source Assistan
 
 CRITICAL ACCURACY & VERIFICATION PROTOCOLS:
 1. PRE-RESPONSE VERIFICATION: Before generating any sentence, verify it against the search grounding. If a fact is not explicitly in the search result from the domains above, EXCLUDE IT.
-2. VERIFIED FATWA REQUIREMENT: If the search results do NOT contain a relevant fatwa from the authorized domains, you MUST state: "No verified fatwa is available in the authorized archives for this specific inquiry." Do not attempt to summarize external general knowledge.
-3. FATWA ID ACCURACY: You MUST extract and display the correct Fatwa ID/Number. Double-check that the ID belongs to the specific fatwa you are citing. If an ID is missing, use the "Fatwa Title" verbatim. NEVER generate or guess a Fatwa ID.
+2. VERIFIED FATWA REQUIREMENT: If the search results do NOT contain a relevant fatwa from the authorized domains, you MUST state: "I cannot find a verified ruling on this specific topic from the approved archives."
+3. FATWA ID ACCURACY: Extract and display the correct Fatwa ID/Number. Double-check that the ID belongs to the specific fatwa you are citing. If an ID is missing, say: "Reference Number: Not provided in source."
 4. VERBATIM RECORDS: The "OFFICIAL VERBATIM RECORD" must be a bit-for-bit exact copy of the text found in the search result. No paraphrasing in this section.
-5. DOMAIN MATCHING: Ensure the Institution Name in your record matches the domain of the source (e.g., Darul Ifta Deoband only for darulifta-deoband.com).
+5. DOMAIN MATCHING: Ensure the Institution Name in your record matches the domain of the source.
 
 OUTPUT FORMAT:
 [Scholarly answer in requested language]
 
 OFFICIAL VERBATIM RECORD:
 [Institution Name]
-Fatwa ID: [Correct ID or Title]
-[Exact Verbatim Text from Source]`;
+Fatwa ID: [ID]
+[Exact Verbatim Text]`;
 
 async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -39,15 +38,21 @@ export interface StreamOutput {
 }
 
 export class GeminiService {
-  constructor() {}
+  private getAI() {
+    // Relying on process.env.API_KEY which is defined in vite.config.ts
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.error("API Key is missing from environment.");
+    }
+    return new GoogleGenAI({ apiKey: apiKey || '' });
+  }
 
   async *sendMessageStream(
     prompt: string, 
     history: Message[], 
-    isThinkingMode: boolean = false,
-    image?: { data: string; mimeType: string }
+    isThinkingMode: boolean = false
   ): AsyncGenerator<StreamOutput> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = this.getAI();
     const modelName = isThinkingMode ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
     
     const recentHistory = history.filter(m => m.id !== 'welcome').slice(-4);
@@ -58,7 +63,7 @@ export class GeminiService {
     while (retries <= maxRetries) {
       try {
         const searchSites = 'site:banuri.edu.pk OR site:darululoomkarachi.edu.pk OR site:darulifta-deoband.com OR site:suffahpk.com OR site:darulifta.info';
-        const enhancedPrompt = `[VERIFY_ONLY_AUTHORIZED_SITES] SITES: ${searchSites} | QUERY: ${prompt}`;
+        const enhancedPrompt = `SEARCH_RESTRICTION: ${searchSites} | USER_QUERY: ${prompt}`;
         
         const config: any = {
           systemInstruction: SYSTEM_INSTRUCTION,
@@ -66,28 +71,15 @@ export class GeminiService {
         };
 
         if (isThinkingMode) {
-          config.thinkingConfig = { thinkingBudget: 4000 };
-        }
-
-        const parts: any[] = [{ text: enhancedPrompt }];
-        if (image) {
-          parts.push({
-            inlineData: {
-              data: image.data,
-              mimeType: image.mimeType
-            }
-          });
+          config.thinkingConfig = { thinkingBudget: 8000 };
         }
 
         const contents = [
           ...recentHistory.map(msg => ({
             role: msg.role === 'user' ? 'user' : 'model',
-            parts: msg.image ? [
-              { text: msg.content },
-              { inlineData: { data: msg.image.data, mimeType: msg.image.mimeType } }
-            ] : [{ text: msg.content }]
+            parts: [{ text: msg.content }]
           })),
-          { role: 'user', parts }
+          { role: 'user', parts: [{ text: enhancedPrompt }] }
         ];
 
         const responseStream = await ai.models.generateContentStream({
@@ -108,7 +100,7 @@ export class GeminiService {
               if (gChunk.web?.uri && !seenUris.has(gChunk.web.uri)) {
                 seenUris.add(gChunk.web.uri);
                 sources.push({
-                  title: gChunk.web.title || "Official Archive Link",
+                  title: gChunk.web.title || "Scholarly Archive Link",
                   uri: gChunk.web.uri
                 });
               }
@@ -123,8 +115,7 @@ export class GeminiService {
       } catch (error: any) {
         if (isQuotaError(error) && retries < maxRetries) {
           retries++;
-          const delay = 1500 * retries;
-          await sleep(delay);
+          await sleep(1000 * retries);
           continue;
         }
         throw error;
@@ -133,7 +124,7 @@ export class GeminiService {
   }
 
   async generateSpeech(text: string, voiceName: string = 'Kore'): Promise<string> {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = this.getAI();
     try {
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
