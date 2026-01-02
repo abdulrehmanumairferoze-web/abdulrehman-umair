@@ -1,4 +1,3 @@
-
 export type Language = 'en' | 'ur';
 
 export interface Message {
