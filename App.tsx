@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Send, BookOpen, Menu, Plus, Brain, Zap, Loader2, 
   Home, ChevronRight, Scale, Wallet, Heart, ShieldCheck, 
-  Globe, Info, MessageSquare
+  Globe, Info, MessageSquare, AlertCircle, Key
 } from 'lucide-react';
 import { Message, Language, VoiceType } from './types';
 import { geminiService } from './services/geminiService';
@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [isThinkingMode, setIsThinkingMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<VoiceType>('Ayesha');
+  const [errorState, setErrorState] = useState<{message: string, type: 'key' | 'quota' | 'general'} | null>(null);
   
   const t = translations[language];
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -26,9 +27,23 @@ const App: React.FC = () => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  const handleSelectKey = async () => {
+    try {
+      // @ts-ignore
+      if (window.aistudio?.openSelectKey) {
+        // @ts-ignore
+        await window.aistudio.openSelectKey();
+        setErrorState(null);
+      }
+    } catch (e) {
+      console.error("Key selection failed:", e);
+    }
+  };
+
   const handleInquirySubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim()) return;
+    setErrorState(null);
     
     if (view === 'home') {
       const welcome: Message = { 
@@ -90,10 +105,24 @@ const App: React.FC = () => {
           ));
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Generation error:", e);
+      let errorMsg = t.errorGeneral;
+      let type: 'key' | 'quota' | 'general' = 'general';
+
+      if (e.message === "INVALID_KEY") {
+        errorMsg = t.errorKey;
+        type = 'key';
+      } else if (e.message === "QUOTA_EXHAUSTED") {
+        errorMsg = t.errorQuota;
+        type = 'quota';
+      } else if (e.message) {
+        errorMsg = `API Error: ${e.message}`;
+      }
+
+      setErrorState({ message: errorMsg, type });
       setMessages(prev => prev.map(m => 
-        m.id === assistantMsgId ? { ...m, content: "Consultation failed. The system is experiencing high volume. Please try again in a few moments." } : m
+        m.id === assistantMsgId ? { ...m, content: errorMsg } : m
       ));
     } finally {
       setIsLoading(false);
@@ -117,14 +146,14 @@ const App: React.FC = () => {
           
           <nav className="flex-1 space-y-3">
             <button 
-              onClick={() => { setView('home'); setIsSidebarOpen(false); }} 
+              onClick={() => { setView('home'); setIsSidebarOpen(false); setErrorState(null); }} 
               className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all ${view === 'home' ? 'bg-emerald-800 shadow-lg' : 'hover:bg-emerald-900/40 text-emerald-100/70'}`}
             >
               <Home size={18} /> 
               <span className="text-sm font-bold">{t.home}</span>
             </button>
             <button 
-              onClick={() => { setView('chat'); setMessages([]); handleInquirySubmit(); }} 
+              onClick={() => { setView('chat'); setMessages([]); setInput(''); setErrorState(null); }} 
               className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-emerald-500 text-[#042f24] font-black mt-6 hover:bg-emerald-400 transition-transform active:scale-95 shadow-xl"
             >
               <Plus size={18} /> 
@@ -158,8 +187,8 @@ const App: React.FC = () => {
             <div className="hidden md:flex flex-col">
               <span className="text-[10px] font-black uppercase tracking-widest text-emerald-900/30">System Status</span>
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-sm font-black text-emerald-950">Active Retrieval Engaged</span>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${errorState ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                <span className="text-sm font-black text-emerald-950">{errorState ? 'System Alert' : t.keyActive}</span>
               </div>
             </div>
           </div>
@@ -176,6 +205,24 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 overflow-y-auto scrollbar-hide">
+          {errorState && (
+            <div className="max-w-4xl mx-auto mt-8 p-6 bg-red-50 border border-red-200 rounded-3xl flex items-center gap-4 animate-in">
+              <AlertCircle className="text-red-600 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-red-900">{errorState.message}</p>
+              </div>
+              {errorState.type === 'key' && (
+                <button 
+                  onClick={handleSelectKey}
+                  className="px-6 py-2 bg-red-600 text-white rounded-xl text-xs font-black uppercase hover:bg-red-700 transition-all flex items-center gap-2"
+                >
+                  <Key size={14} />
+                  {t.selectKey}
+                </button>
+              )}
+            </div>
+          )}
+
           {view === 'home' ? (
             <div className="max-w-4xl mx-auto p-8 md:pt-32 space-y-24">
               <section className="text-center space-y-10 animate-in">
@@ -190,7 +237,6 @@ const App: React.FC = () => {
                   {t.heroSub}
                 </p>
                 
-                {/* The Inquiry Form */}
                 <form 
                   onSubmit={handleInquirySubmit}
                   className="max-w-2xl mx-auto group relative"
@@ -219,13 +265,6 @@ const App: React.FC = () => {
                 <TopicCard icon={Wallet} title={t.topicZakat} prompt="Calculate Zakat on 10 Tola Gold with current valuation." onClick={(p: string) => { setInput(p); handleInquirySubmit(); }} />
                 <TopicCard icon={Heart} title={t.topicNikah} prompt="What are the essential pillars of a valid Nikah contract?" onClick={(p: string) => { setInput(p); handleInquirySubmit(); }} />
               </section>
-
-              <div className="flex flex-wrap justify-center gap-8 opacity-30 grayscale hover:grayscale-0 transition-all duration-500">
-                <InstitutionLogo name="Jamia Binoria" />
-                <InstitutionLogo name="Darul Uloom" />
-                <InstitutionLogo name="Deoband" />
-                <InstitutionLogo name="Suffah PK" />
-              </div>
 
               <footer className="text-center py-12 border-t border-emerald-100/50">
                 <p className="text-[10px] font-black text-emerald-900/40 uppercase tracking-[0.3em]">{t.disclaimer}</p>
@@ -294,13 +333,6 @@ const TopicCard = ({ icon: Icon, title, prompt, onClick }: any) => (
       </span>
     </div>
   </button>
-);
-
-const InstitutionLogo = ({ name }: { name: string }) => (
-  <div className="flex items-center gap-3 px-6 py-4 rounded-2xl border border-emerald-200/50 bg-white shadow-sm">
-    <Globe size={16} className="text-emerald-800" />
-    <span className="text-xs font-black text-emerald-950 uppercase tracking-widest whitespace-nowrap">{name}</span>
-  </div>
 );
 
 export default App;

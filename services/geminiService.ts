@@ -28,8 +28,13 @@ async function sleep(ms: number) {
 }
 
 function isQuotaError(error: any): boolean {
-  const errorStr = JSON.stringify(error).toLowerCase();
+  const errorStr = String(error).toLowerCase();
   return errorStr.includes("429") || errorStr.includes("resource_exhausted") || errorStr.includes("quota");
+}
+
+function isKeyError(error: any): boolean {
+  const errorStr = String(error).toLowerCase();
+  return errorStr.includes("401") || errorStr.includes("unauthorized") || errorStr.includes("invalid_api_key") || errorStr.includes("api key not found");
 }
 
 export interface StreamOutput {
@@ -39,12 +44,8 @@ export interface StreamOutput {
 
 export class GeminiService {
   private getAI() {
-    // Relying on process.env.API_KEY which is defined in vite.config.ts
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      console.error("API Key is missing from environment.");
-    }
-    return new GoogleGenAI({ apiKey: apiKey || '' });
+    const apiKey = process.env.API_KEY || '';
+    return new GoogleGenAI({ apiKey });
   }
 
   async *sendMessageStream(
@@ -53,73 +54,73 @@ export class GeminiService {
     isThinkingMode: boolean = false
   ): AsyncGenerator<StreamOutput> {
     const ai = this.getAI();
+    // Default to flash-preview for reliability, upgrade only if specifically requested and available
     const modelName = isThinkingMode ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
     
     const recentHistory = history.filter(m => m.id !== 'welcome').slice(-4);
 
     let retries = 0;
-    const maxRetries = 2;
+    const maxRetries = 1;
 
-    while (retries <= maxRetries) {
-      try {
-        const searchSites = 'site:banuri.edu.pk OR site:darululoomkarachi.edu.pk OR site:darulifta-deoband.com OR site:suffahpk.com OR site:darulifta.info';
-        const enhancedPrompt = `SEARCH_RESTRICTION: ${searchSites} | USER_QUERY: ${prompt}`;
-        
-        const config: any = {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          tools: [{ googleSearch: {} }],
-        };
+    try {
+      const searchSites = 'site:banuri.edu.pk OR site:darululoomkarachi.edu.pk OR site:darulifta-deoband.com OR site:suffahpk.com OR site:darulifta.info';
+      const enhancedPrompt = `SEARCH_RESTRICTION: ${searchSites} | USER_QUERY: ${prompt}`;
+      
+      const config: any = {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        tools: [{ googleSearch: {} }],
+      };
 
-        if (isThinkingMode) {
-          config.thinkingConfig = { thinkingBudget: 8000 };
-        }
+      if (isThinkingMode) {
+        config.thinkingConfig = { thinkingBudget: 8000 };
+      }
 
-        const contents = [
-          ...recentHistory.map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content }]
-          })),
-          { role: 'user', parts: [{ text: enhancedPrompt }] }
-        ];
+      const contents = [
+        ...recentHistory.map(msg => ({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        })),
+        { role: 'user', parts: [{ text: enhancedPrompt }] }
+      ];
 
-        const responseStream = await ai.models.generateContentStream({
-          model: modelName,
-          contents: contents,
-          config: config,
-        });
+      const responseStream = await ai.models.generateContentStream({
+        model: modelName,
+        contents: contents,
+        config: config,
+      });
 
-        const seenUris = new Set<string>();
+      const seenUris = new Set<string>();
 
-        for await (const chunk of responseStream) {
-          const text = chunk.text;
-          const groundingMetadata = chunk.candidates?.[0]?.groundingMetadata;
-          const sources: Source[] = [];
+      for await (const chunk of responseStream) {
+        const text = chunk.text;
+        const groundingMetadata = chunk.candidates?.[0]?.groundingMetadata;
+        const sources: Source[] = [];
 
-          if (groundingMetadata?.groundingChunks) {
-            for (const gChunk of groundingMetadata.groundingChunks) {
-              if (gChunk.web?.uri && !seenUris.has(gChunk.web.uri)) {
-                seenUris.add(gChunk.web.uri);
-                sources.push({
-                  title: gChunk.web.title || "Scholarly Archive Link",
-                  uri: gChunk.web.uri
-                });
-              }
+        if (groundingMetadata?.groundingChunks) {
+          for (const gChunk of groundingMetadata.groundingChunks) {
+            if (gChunk.web?.uri && !seenUris.has(gChunk.web.uri)) {
+              seenUris.add(gChunk.web.uri);
+              sources.push({
+                title: gChunk.web.title || "Scholarly Archive Link",
+                uri: gChunk.web.uri
+              });
             }
           }
+        }
 
-          if (text || sources.length > 0) {
-            yield { text, sources: sources.length > 0 ? sources : undefined };
-          }
+        if (text || sources.length > 0) {
+          yield { text, sources: sources.length > 0 ? sources : undefined };
         }
-        return; 
-      } catch (error: any) {
-        if (isQuotaError(error) && retries < maxRetries) {
-          retries++;
-          await sleep(1000 * retries);
-          continue;
-        }
-        throw error;
       }
+    } catch (error: any) {
+      if (isQuotaError(error)) {
+        throw new Error("QUOTA_EXHAUSTED");
+      }
+      if (isKeyError(error)) {
+        throw new Error("INVALID_KEY");
+      }
+      console.error("Gemini API stream error:", error);
+      throw error;
     }
   }
 

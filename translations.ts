@@ -1,4 +1,3 @@
-
 import { Language } from './types';
 
 export const translations = {
@@ -36,7 +35,12 @@ export const translations = {
     topicFast: "Fasting (Sawm)",
     topicInherit: "Inheritance Law",
     viewAll: "View All Archives",
-    introMessage: `Welcome to Al Fiqh Assistant. I am your AI assistant for Islamic Fiqh, grounded exclusively in the databases of Jamia Binoria, Darul Uloom Karachi, Darul Ifta Deoband, and more.`
+    introMessage: `Welcome to Al Fiqh Assistant. I am your AI assistant for Islamic Fiqh, grounded exclusively in the databases of Jamia Binoria, Darul Uloom Karachi, Darul Ifta Deoband, and more.`,
+    errorKey: "API Key Required: Please add API_KEY to your deployment environment or select one below.",
+    errorQuota: "Daily limit reached. Please try again later or use a different key.",
+    errorGeneral: "An error occurred. Check the console for details.",
+    selectKey: "Select API Key",
+    keyActive: "Scholarly Link Active"
   },
   ur: {
     appTitle: "الفقہ اسسٹنٹ",
@@ -72,6 +76,11 @@ export const translations = {
     topicFast: "روزہ (صوم)",
     topicInherit: "وراثت کے مسائل",
     viewAll: "تمام آرکائیوز",
-    introMessage: `الفقہ اسسٹنٹ میں خوش آمدید۔ میں آپ کا فقہی اسسٹنٹ ہوں، جو صرف جامعہ بنوریہ، دارالعلوم کراچی اور دیگر مجاز اداروں کے ڈیٹا سے رہنمائی فراہم کرتا ہوں۔`
+    introMessage: `الفقہ اسسٹنٹ میں خوش آمدید۔ میں آپ کا فقہی اسسٹنٹ ہوں، جو صرف جامعہ بنوریہ، دارالعلوم کراچی اور دیگر مجاز اداروں کے ڈیٹا سے رہنمائی فراہم کرتا ہوں۔`,
+    errorKey: "API کلید درکار ہے: براہ کرم اپنے اکاؤنٹ میں کلید شامل کریں۔",
+    errorQuota: "روزانہ کی حد ختم ہو گئی۔ براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    errorGeneral: "ایک خرابی پیش آگئی ہے۔",
+    selectKey: "API کلید منتخب کریں",
+    keyActive: "علمی لنک فعال ہے"
   }
 };
