@@ -37,9 +37,9 @@ export const translations = {
     viewAll: "View All Archives",
     introMessage: `Welcome to Al Fiqh Assistant. I am your AI assistant for Islamic Fiqh, grounded exclusively in the databases of Jamia Binoria, Darul Uloom Karachi, Darul Ifta Deoband, and more.`,
     errorKey: "API Key Required: Please add API_KEY to your deployment environment or select one below.",
-    errorQuota: "Daily limit reached. Please try again later or use a different key.",
+    errorQuota: "Daily limit reached for this portal. To continue without waiting, please select your own API Key using the button below.",
     errorGeneral: "An error occurred. Check the console for details.",
-    selectKey: "Select API Key",
+    selectKey: "Select Your API Key",
     keyActive: "Scholarly Link Active"
   },
   ur: {
@@ -78,9 +78,9 @@ export const translations = {
     viewAll: "تمام آرکائیوز",
     introMessage: `الفقہ اسسٹنٹ میں خوش آمدید۔ میں آپ کا فقہی اسسٹنٹ ہوں، جو صرف جامعہ بنوریہ، دارالعلوم کراچی اور دیگر مجاز اداروں کے ڈیٹا سے رہنمائی فراہم کرتا ہوں۔`,
     errorKey: "API کلید درکار ہے: براہ کرم اپنے اکاؤنٹ میں کلید شامل کریں۔",
-    errorQuota: "روزانہ کی حد ختم ہو گئی۔ براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    errorQuota: "اس پورٹل کی روزانہ کی حد ختم ہو گئی ہے۔ انتظار کیے بغیر جاری رکھنے کے لیے، نیچے دیئے گئے بٹن کے ذریعے اپنی ذاتی API کلید منتخب کریں۔",
     errorGeneral: "ایک خرابی پیش آگئی ہے۔",
-    selectKey: "API کلید منتخب کریں",
+    selectKey: "اپنی کلید منتخب کریں",
     keyActive: "علمی لنک فعال ہے"
   }
 };
